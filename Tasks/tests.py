@@ -134,23 +134,9 @@ def orders():
         orders_df.to_excel(orders_writer, sheet_name='Order Details', index=False)
 
 
-
-
-
 get_user_credentials()
-print("1st")
 login_and_record_errors()
-print("1st")
-print("1st")
-
 standard_user_product_details()
-print("1st")
-print("1st")
-print("1st")
-
 orders()
-print("1st")
-print("1st")
-print("1st")
-print("1st")
+
 
