@@ -1,6 +1,9 @@
 import time
+import tests
 import sys
 import openpyxl
+from Utilities.config import FILEPATH, PASSWORD
+from Utilities import drivers
 from openpyxl import Workbook
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common import NoSuchElementException, TimeoutException
@@ -10,8 +13,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 sys.path.append('../Utilities')
 sys.path.append('../Drivers')
-from Utilities.config import FILEPATH, PASSWORD
-from Utilities import drivers
+
 
 class PlaceOrders():
     def __init__(self):
@@ -52,14 +54,14 @@ class PlaceOrders():
             print({user_id:product_name})
             product_name_element = self.driver.find_element(By.XPATH, f"//*[text()='{product_name}']")
             product_name_element.click()
-            time.sleep(1)
+            self.wait()
             add_to_cart_element = self.driver.find_element(By.XPATH, "//*[text()='ADD TO CART']")
             add_to_cart_element.click()
-            time.sleep(1)
+            self.wait()
 
             cart_element = self.driver.find_element(By.ID, 'shopping_cart_container')
             cart_element.click()
-            time.sleep(2)
+            self.wait()
             checkout_element = self.driver.find_element(By.XPATH, "//*[@class='cart_footer']/a[2]")
             checkout_element.click()
             time.sleep(1)
@@ -94,11 +96,3 @@ class PlaceOrders():
             sheet.cell(row=1, column=column_index,value="Order Status")
             sheet.cell(row=int(order_id)+1, column=column_index, value=order_status)
             self.wb.save(FILEPATH)
-
-
-if __name__ == "__main__":
-
-    orders = PlaceOrders()
-    orders.initialize_driver()
-    orders.load_excel(FILEPATH)
-    orders.place_orders()

@@ -1,3 +1,4 @@
+import subprocess
 import time
 import openpyxl
 import pandas as pd
@@ -39,7 +40,8 @@ def get_user_credentials():
         df_credentials = pd.DataFrame({'User ID': user_id, "Username": usernames, "Password": "secret_sauce"})
         df_credentials.to_excel('../Test_Data/user_credentials.xlsx', index=False)
 
-
+# def run_tests():
+#     subprocess.run(['python', 'tests.py'])
 def login_and_record_errors():
     df = pd.read_excel(FILEPATH, sheet_name="Sheet1")
 
@@ -134,9 +136,6 @@ def orders():
         orders_df.to_excel(orders_writer, sheet_name='Order Details', index=False)
 
 
-get_user_credentials()
-login_and_record_errors()
-standard_user_product_details()
-orders()
+
 
 
