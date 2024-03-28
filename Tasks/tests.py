@@ -136,6 +136,9 @@ def orders():
         orders_df.to_excel(orders_writer, sheet_name='Order Details', index=False)
 
 
+def close_driver():
+    time.sleep(2)
+    driver.quit()
 
 
 
