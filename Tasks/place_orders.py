@@ -2,12 +2,14 @@
 python
 """
 import sys
+import logging
 import time
 from typing import Optional
 
 import openpyxl
 from openpyxl import Workbook
-from selenium.common import NoSuchElementException, TimeoutException
+from openpyxl.utils.exceptions import InvalidFileException
+from selenium.common import NoSuchElementException, TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
@@ -37,18 +39,44 @@ class PlaceOrders:
         Initializes attributes for driver, wait, excel, and workbook.
         """
         # self.driver = None
+        # Initialize attributes
         self.wait: Optional[WebDriverWait] = None
         self.driver: Optional[WebDriver] = None
         self.excel = None
         self.wb: Optional[Workbook] = None
+
+        # initialize logger
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
+
+        # handle in console
+        # self.handler = logging.StreamHandler()
+        # self.handler.setLevel(logging.DEBUG)
+        # self.logger.addHandler(self.handler)
+
+        # Create a file handler for logging to 'logs.txt' file
+        self.file_handler = logging.FileHandler("../Logs/logs.txt")
+        self.file_handler.setLevel(logging.DEBUG)
+
+        # Create a formatter for the file handler
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        self.file_handler.setFormatter(formatter)
+
+        # Add the file handler to the logger
+        self.logger.addHandler(self.file_handler)
 
     def initialize_driver(self):
 
         """
         Initializes the WebDriver and WebDriverWait for the driver.
         """
-        self.driver = drivers.initialize_driver("chrome")
-        self.wait = WebDriverWait(self.driver, 2)
+        try:
+            self.driver = drivers.initialize_driver("chrome")
+            self.logger.info("Driver initialized")
+            self.wait = WebDriverWait(self.driver, 2)
+        except WebDriverException:
+            self.logger.error("Could not initialize driver")
+
 
     def load_excel(self, excel_file):
         """
@@ -60,9 +88,12 @@ class PlaceOrders:
         Returns:
         None
         """
-        self.excel = excel_file
-        self.wb = openpyxl.load_workbook(FILEPATH)
-
+        try:
+            self.excel = excel_file
+            self.wb = openpyxl.load_workbook(FILEPATH)
+            self.logger.info("Excel loaded successfully")
+        except InvalidFileException:
+            self.logger.error("File can not be loaded, invalid format")
     def login_user(self, username, password):
         """
         Log in a user with the provided username and password.
@@ -74,11 +105,17 @@ class PlaceOrders:
         Returns:
         None
         """
-        self.driver.get("https://www.saucedemo.com/v1/")
-        self.driver.maximize_window()
-        self.driver.find_element(By.ID, "user-name").send_keys(username)
-        self.driver.find_element(By.ID, "password").send_keys(password)
-        self.driver.find_element(By.ID, "login-button").click()
+        try:
+            self.driver.get("https://www.saucedemo.com/v1/")
+            self.driver.maximize_window()
+            self.driver.find_element(By.ID, "user-name").send_keys(username)
+            self.driver.find_element(By.ID, "password").send_keys(password)
+            self.driver.find_element(By.ID, "login-button").click()
+            self.logger.info("Logged in successfully as %s", username)
+        except NoSuchElementException:
+            self.logger.error("Login failed, element could not be found")
+        except TimeoutException:
+            self.logger.error("Login failed, Timed out finding the element")
 
     def place_orders(self):
         """
@@ -90,6 +127,8 @@ class PlaceOrders:
         Returns:
         None
         """
+
+        self.logger.info("starting to place orders")
         order_details = self.wb['Order Details']
         sheet = self.wb["Order Details"]
 
@@ -97,21 +136,26 @@ class PlaceOrders:
             quantity_in_site = 0
             # Extract data from the row
             if len(row) == 6:
+                self.logger.debug("Process row %s", row)
                 order_id, user_id, product_id, product_name, quantity, total_price, = row
             else:
                 (order_id, user_id, product_id, product_name,
                  quantity, total_price, order_status) = row
 
             # Login user with provided user_id and PASSWORD
+            self.logger.info("Login user id: %s", user_id)
             self.login_user(user_id, PASSWORD)
 
             # Find and click on the product
+            self.logger.info("clicking on product: %s", product_name)
             product_name_element = self.driver.find_element(By.XPATH,
                                                             f"//*[text()='{product_name}']")
             product_name_element.click()
+            self.logger.info("product viewed")
             # Add the product to the cart
             add_to_cart_element = self.driver.find_element(By.XPATH, "//*[text()='ADD TO CART']")
             add_to_cart_element.click()
+            self.logger.info("product: %s added to the cart", product_name)
 
             # Proceed to the cart and checkout
             cart_element = self.driver.find_element(By.ID, 'shopping_cart_container')
@@ -120,6 +164,7 @@ class PlaceOrders:
             try:
                 quantity_in_site = self.driver.find_element(By.XPATH, "//*[@class='cart_quantity']").text
             except NoSuchElementException:
+                self.logger.warning("Quantity of the product not found")
                 order_status = "failure"
             checkout_element = self.driver.find_element(By.XPATH, "//*[@class='cart_footer']/a[2]")
             checkout_element.click()
@@ -143,6 +188,7 @@ class PlaceOrders:
                 self.driver.find_element(By.XPATH, "//*[text()='FINISH']").click()
 
             except NoSuchElementException:
+                self.logger.warning("Element for finish button not found")
                 order_status = "failure"
 
             if order_status == "success":
@@ -156,6 +202,7 @@ class PlaceOrders:
                         order_status = "success"
 
                 except TimeoutException:
+                    self.logger.error("Timed out")
                     order_status = "Failure"
 
             # Update the order status in the Excel sheet
@@ -163,3 +210,4 @@ class PlaceOrders:
             sheet.cell(row=1, column=column_index, value="Order Status")
             sheet.cell(row=int(order_id) + 1, column=column_index, value=order_status)
             self.wb.save(FILEPATH)
+        self.logger.info("order placement completed")
